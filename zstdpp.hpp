@@ -7,6 +7,8 @@
 #include <cstdint>
 #include <fstream>
 #include <zstd.h>
+#include <CpputilsDebug.h>
+#include <format.h>
 
 namespace zstdpp {
 
@@ -26,6 +28,7 @@ namespace utils{
         for (auto const& c : str) {
             bytes.push_back(c);
         }
+        CPPDEBUG( Tools::format( "Converted string of size %zu to bytes of size %zu", str.size(), bytes.size() ) );
         return bytes;
     }
     
@@ -245,10 +248,25 @@ namespace inplace{
     inline size_buffer_t decompress(buffer_t &data, buffer_t& out_buffer) {
       auto const est_decomp_size =
           ZSTD_getFrameContentSize(data.data(), data.size());
+
+      CPPDEBUG( Tools::format( "Estimated decompressed size: %zu: %ld", est_decomp_size, static_cast<long>(est_decomp_size) ) );
+
+      if( ZSTD_isError(est_decomp_size) ) {
+          throw std::runtime_error(
+              std::string("Decompression error: ") + ZSTD_getErrorName(est_decomp_size)
+          );
+      }
+
       out_buffer.resize(est_decomp_size);
     
       size_t const decomp_size = ZSTD_decompress(
           (void*)out_buffer.data(), est_decomp_size, data.data(), data.size());
+
+      if( ZSTD_isError(decomp_size) ) {
+          throw std::runtime_error(
+              std::string("Decompression error: ") + ZSTD_getErrorName(decomp_size)
+          );
+      }
     
       out_buffer.resize(decomp_size);
       out_buffer.shrink_to_fit();
@@ -288,6 +306,7 @@ inline buffer_t compress( buffer_t const& data, compress_level_t compress_level 
 
 inline buffer_t decompress(buffer_t &data) {
   buffer_t decomp_buffer{};
+  CPPDEBUG( Tools::format( "size: %d", data.size() ) );
   auto const est_decomp_size = inplace::decompress(data, decomp_buffer);
   return decomp_buffer;
 }
